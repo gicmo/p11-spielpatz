@@ -1,5 +1,6 @@
 #define _GNU_SOURCE 1
 #include <p11-kit/p11-kit.h>
+#include <p11-kit/uri.h>
 
 #include <ctype.h>
 #include <getopt.h>
@@ -64,7 +65,8 @@ static void
 dump_token_info (CK_TOKEN_INFO *token, const char *prefix)
 {
         char buf[128];
-        printf("%s%s\n", prefix, get_str (token->label, buf));
+
+        printf("%s Name: %s\n", prefix, get_str (token->label, buf));
         printf("%s Manufacturer: %s\n", prefix, get_str (token->manufacturerID, buf));
         printf("%s Model: %s\n", prefix, get_str (token->model, buf));
         printf("%s Serial: %s\n", prefix, get_str (token->serialNumber, buf));
@@ -228,6 +230,25 @@ dump_objects(CK_FUNCTION_LIST *m,
         }
 }
 
+static void
+print_uri(P11KitUri *uri, P11KitUriType how, const char *pre, const char *post)
+{
+        const char *str = NULL;
+        char *tmp = NULL;
+        int r;
+
+        r = p11_kit_uri_format(uri, how, &tmp);
+
+        if (r == P11_KIT_URI_OK) {
+                str = tmp;
+        } else {
+                str = p11_kit_uri_message(r);
+        }
+
+        printf("%s'%s'%s", pre, str, post);
+        free(tmp);
+}
+
 CK_RV
 token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, const char *pin)
 {
@@ -249,6 +270,7 @@ int
 main(int argc, char **argv)
 {
         CK_FUNCTION_LIST **modules;
+        P11KitUri *uri;
         int c;
         int no_login = 0;
 
@@ -277,20 +299,38 @@ main(int argc, char **argv)
                 }
         }
 
+        uri = p11_kit_uri_new();
+
         modules = p11_kit_modules_load_and_initialize(0);
 
         for (CK_FUNCTION_LIST **l = modules; *l; l++) {
                 CK_FUNCTION_LIST *m = *l;
+                CK_INFO info;
+                CK_RV rv;
                 char *name;
 
                 name = p11_kit_module_get_name (m);
                 printf("Module: %s\n", name);
                 free (name);
 
+                rv = m->C_GetInfo(&info);
+                if (rv != CKR_OK) {
+                        report_error(rv, "GetSlotList");
+                        continue;
+                }
+
+                memcpy(p11_kit_uri_get_module_info(uri), &info, sizeof(info));
+                print_uri(uri, P11_KIT_URI_FOR_MODULE, " URI: ", "\n");
+
+                printf(" Version: ");
+                dump_version(&info.cryptokiVersion);
+                printf("\n");
+                printf(" Manufacturer: %.*s\n", (int) sizeof (info.manufacturerID), info.manufacturerID);
+
                 CK_SLOT_ID slotids[256];
                 CK_ULONG count = sizeof (slotids) / sizeof (CK_SLOT_ID);
 
-                CK_RV rv = m->C_GetSlotList (0, slotids, &count);
+                rv = m->C_GetSlotList (0, slotids, &count);
 
                 if (rv == CKR_BUFFER_TOO_SMALL) {
                         fprintf(stderr, "GetSlotList buffer too small");
@@ -311,10 +351,13 @@ main(int argc, char **argv)
                                 continue;
                         }
 
+                        memcpy(p11_kit_uri_get_slot_info(uri), &slot, sizeof(slot));
+
+                        print_uri(uri, P11_KIT_URI_FOR_SLOT, "Slot-URI: ", "\n");
                         printf("Slot #%lu [%lu]: ", i, slotids[i]);
                         dump_slot_info(&slot);
 
-                        printf("  Token: ");
+                        printf("  Token: \n");
 
                         rv = m->C_GetTokenInfo(slotids[i], &token);
                         if (rv == CKR_TOKEN_NOT_PRESENT) {
@@ -325,6 +368,8 @@ main(int argc, char **argv)
                                 continue;
                         }
 
+                        memcpy(p11_kit_uri_get_token_info(uri), &token, sizeof(token));
+                        print_uri(uri, P11_KIT_URI_FOR_TOKEN, "   URI: ", "\n");
                         dump_token_info(&token, "  ");
 
                         rv = m->C_OpenSession(slotids[i], CKF_SERIAL_SESSION, NULL, NULL, &session);
@@ -345,4 +390,8 @@ main(int argc, char **argv)
                 }
 
         }
+
+        p11_kit_uri_free(uri);
+
+        return EXIT_SUCCESS;
 }
