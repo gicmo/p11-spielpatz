@@ -174,6 +174,7 @@ dump_objects(CK_FUNCTION_LIST *m,
                         CK_BBOOL can_sign = CK_FALSE;
                         CK_BBOOL can_encrypt = CK_FALSE;
                         CK_BBOOL can_decrypt = CK_FALSE;
+                        CK_BBOOL can_verify = CK_FALSE;
                         CK_UTF8CHAR url[256] = {0, };
                         CK_ATTRIBUTE attrs[] =
                                 {
@@ -186,6 +187,7 @@ dump_objects(CK_FUNCTION_LIST *m,
                                  {CKA_SIGN, &can_sign, sizeof(can_sign)},
                                  {CKA_ENCRYPT, &can_encrypt, sizeof(can_encrypt)},
                                  {CKA_DECRYPT, &can_decrypt, sizeof(can_decrypt)},
+                                 {CKA_VERIFY, &can_verify, sizeof(can_verify)},
                         };
 
                         CK_ULONG nattr = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
@@ -215,6 +217,8 @@ dump_objects(CK_FUNCTION_LIST *m,
                                 printf("%s   Encrypt: %s\n", prefix, yesno(can_encrypt));
                         if (attrs[8].ulValueLen != CK_UNAVAILABLE_INFORMATION)
                                 printf("%s   Decrypt: %s\n", prefix, yesno(can_decrypt));
+                        if (attrs[9].ulValueLen != CK_UNAVAILABLE_INFORMATION)
+                                printf("%s   Verify: %s\n", prefix, yesno(can_verify));
                 }
         }
 
