@@ -7,3 +7,8 @@ executable('list',
            sources: [ 'list.c' ],
            dependencies: [
                    p11kit])
+
+executable('watch',
+           sources: [ 'watch.c' ],
+           dependencies: [
+                   p11kit])
