@@ -271,6 +271,7 @@ main(int argc, char **argv)
 {
         CK_FUNCTION_LIST **modules;
         P11KitUri *uri;
+        CK_RV rv;
         int c;
         int no_login = 0;
 
@@ -306,11 +307,10 @@ main(int argc, char **argv)
         for (CK_FUNCTION_LIST **l = modules; *l; l++) {
                 CK_FUNCTION_LIST *m = *l;
                 CK_INFO info;
-                CK_RV rv;
                 char *name;
 
                 name = p11_kit_module_get_name (m);
-                printf("Module: %s\n", name);
+                printf("Module: %s\n", name ? name : "unnamed");
                 free (name);
 
                 rv = m->C_GetInfo(&info);
