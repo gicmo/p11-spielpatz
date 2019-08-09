@@ -14,6 +14,12 @@ executable('watch',
            dependencies: [
                    p11kit])
 
+executable('cert',
+           sources: [ 'cert.c' ],
+           dependencies: [
+                   p11kit,
+                   openssl])
+
 executable('gen',
            sources: [ 'gen.c' ],
            dependencies: [
