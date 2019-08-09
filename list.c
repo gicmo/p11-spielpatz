@@ -143,6 +143,87 @@ cert_type_to_str(CK_CERTIFICATE_TYPE ct)
 }
 
 static void
+dump_attributes (CK_ATTRIBUTE *attrs, size_t nattrs, const char *prefix)
+{
+        for (size_t i = 0; i < nattrs; i++) {
+                CK_ATTRIBUTE *attr = attrs + i;
+
+                if (attr->ulValueLen == CK_UNAVAILABLE_INFORMATION)
+                        continue;
+
+                switch (attr->type) {
+                case CKA_CLASS: {
+                        CK_OBJECT_CLASS klass;
+                        memcpy(&klass, attr->pValue, sizeof(klass));
+                        printf("%s Class: %s [0x%lX]\n", prefix, object_class_to_str(klass), klass);
+                        break;
+                }
+
+                case CKA_TOKEN: {
+                        CK_BBOOL is_token = CK_FALSE;
+                        memcpy(&is_token, attr->pValue, sizeof(is_token));
+                        printf("%s Token: %s\n", prefix, yesno(is_token));
+                        break;
+                }
+
+                case CKA_LABEL: {
+                        CK_UTF8CHAR *label = (CK_UTF8CHAR *) attr->pValue;
+                        printf("%s Label: %s\n", prefix, label);
+                        break;
+                }
+
+                case CKA_APPLICATION: {
+                        CK_UTF8CHAR *str = (CK_UTF8CHAR *) attr->pValue;
+                        printf("%s Application: %s\n", prefix, str);
+                        break;
+                }
+
+                case CKA_CERTIFICATE_TYPE: {
+                        CK_CERTIFICATE_TYPE certtype = 0;
+                        memcpy(&certtype, attr->pValue, sizeof(certtype));
+                        printf("%s Certificate: %s\n", prefix, cert_type_to_str(certtype));
+                        break;
+                }
+
+                case CKA_URL: {
+                        CK_UTF8CHAR *str = (CK_UTF8CHAR *) attr->pValue;
+                        printf("%s URL: %s\n", prefix, str);
+                        break;
+                }
+
+                case CKA_SIGN: {
+                        CK_BBOOL yn = CK_FALSE;
+                        memcpy(&yn, attr->pValue, sizeof(yn));
+                        printf("%s Sign: %s\n", prefix, yesno(yn));
+                        break;
+                }
+
+                case CKA_ENCRYPT: {
+                        CK_BBOOL yn = CK_FALSE;
+                        memcpy(&yn, attr->pValue, sizeof(yn));
+                        printf("%s Encrypt: %s\n", prefix, yesno(yn));
+                        break;
+                }
+
+                case CKA_DECRYPT: {
+                        CK_BBOOL yn = CK_FALSE;
+                        memcpy(&yn, attr->pValue, sizeof(yn));
+                        printf("%s Decrypt: %s\n", prefix, yesno(yn));
+                        break;
+                }
+
+                case CKA_VERIFY: {
+                        CK_BBOOL yn = CK_FALSE;
+                        memcpy(&yn, attr->pValue, sizeof(yn));
+                        printf("%s Verify: %s\n", prefix, yesno(yn));
+                        break;
+                }
+
+                }
+        }
+}
+
+static void
 dump_objects(CK_FUNCTION_LIST *m,
              CK_SESSION_HANDLE session,
              const char *prefix)
@@ -199,28 +280,8 @@ dump_objects(CK_FUNCTION_LIST *m,
                         }
 
                         /* NB: pre item return value */
-
                         printf("%s Object #%lu [%lu]\n", prefix, i, objs[i]);
-                        if (attrs[0].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Class: %s [0x%lX]\n", prefix, object_class_to_str(klass), klass);
-                        if (attrs[1].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Token: %s\n", prefix, yesno(is_token));
-                        if (attrs[2].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Label: %s\n", prefix, label);
-                        if (attrs[3].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Application: %s\n", prefix, app);
-                        if (attrs[4].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Certificate: %s\n", prefix, cert_type_to_str(certtype));
-                        if (attrs[5].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   URL: %s\n", prefix, url);
-                        if (attrs[6].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Sign: %s\n", prefix, yesno(can_sign));
-                        if (attrs[7].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Encrypt: %s\n", prefix, yesno(can_encrypt));
-                        if (attrs[8].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Decrypt: %s\n", prefix, yesno(can_decrypt));
-                        if (attrs[9].ulValueLen != CK_UNAVAILABLE_INFORMATION)
-                                printf("%s   Verify: %s\n", prefix, yesno(can_verify));
+                        dump_attributes(attrs, nattr, "    ");
                 }
         }
 
