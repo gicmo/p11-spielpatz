@@ -236,7 +236,7 @@ dump_objects(CK_FUNCTION_LIST *m,
                 return;
         }
 
-        while (rv == CKR_OK) {
+        while (TRUE) {
                 CK_OBJECT_HANDLE objs[256];
                 CK_ULONG count = sizeof (objs) / sizeof (CK_OBJECT_HANDLE);
                 rv = m->C_FindObjects(session, objs, count, &count);
