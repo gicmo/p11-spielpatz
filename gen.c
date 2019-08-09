@@ -496,9 +496,8 @@ p11ctx_import_cert(P11Ctx *ctx, X509 *cert, int id)
         if (len < 0)
                 return -EIO;
 
-        buf = OPENSSL_malloc(len);
-        p = buf;
-        len = i2d_X509(cert, &p);
+        buf = p = OPENSSL_malloc(len);
+        len = i2d_X509(cert, &p); /* increments p! */
 
         fprintf(stderr, "cert size: %i %p %p\n", len, (void *) buf, (void *) p);
 
@@ -552,29 +551,36 @@ generate_key()
 
 /* Generates a self-signed x509 certificate. */
 static X509 *
-generate_x509(EVP_PKEY * pkey)
+generate_x509(EVP_PKEY *pkey)
 {
     X509 *x509 = X509_new();
     X509_NAME *name;
+    int r;
 
     if(!x509)
             return NULL;
 
-    /* Set the serial number. */
+    X509_set_version(x509, 2);
     ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
 
     X509_gmtime_adj(X509_get_notBefore(x509), 0);
-    //    X509_gmtime_adj(X509_get_notAfter(x509), 31536000L);
+    X509_gmtime_adj(X509_get_notAfter(x509), 31536000L);
 
-    X509_set_pubkey(x509, pkey);
+    r = X509_set_pubkey(x509, pkey);
+    if (!r) {
+            X509_free(x509);
+            return NULL;
+    }
 
-    name = X509_get_subject_name(x509);
+    name = X509_NAME_new();
+    //name = X509_get_subject_name(x509);
 
     X509_NAME_add_entry_by_txt(name, "C",  MBSTRING_ASC, (unsigned char *)"CA",        -1, -1, 0);
     X509_NAME_add_entry_by_txt(name, "O",  MBSTRING_ASC, (unsigned char *)"GNOME.org", -1, -1, 0);
     X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)"SSH Key",   -1, -1, 0);
 
     X509_set_issuer_name(x509, name);
+    X509_set_subject_name(x509, name);
 
     if(!X509_sign(x509, pkey, EVP_sha1())) {
         X509_free(x509);
@@ -585,31 +591,24 @@ generate_x509(EVP_PKEY * pkey)
 }
 
 static int
-write_pubkey(RSA *key, const char *path)
+write_privkey(EVP_PKEY *pkey, const char *path)
 {
-        BIO *f = NULL;
+        FILE *f;
         int r;
 
-        f = BIO_new_file(path, "w+");
-        r = PEM_write_bio_RSAPublicKey(f, key);
+        f = fopen(path, "wb+");
+        r = PEM_write_PrivateKey(f, pkey, NULL, NULL, 0, NULL, NULL);
 
-        BIO_free_all (f);
+        if (r == 1) {
+                r = fclose(f);
+                if (r != 0)
+                        r = -errno;
+        } else {
+                (void) fclose(f);
+                r = -EIO;
+        }
 
-        return r != 1 ? -EIO : 0;
-}
-
-static int
-write_privkey(RSA *key, const char *path)
-{
-        BIO *f = NULL;
-        int r;
-
-        f = BIO_new_file(path, "w+");
-        r = PEM_write_bio_RSAPrivateKey(f, key, NULL, NULL, 0, NULL, NULL);
-
-        BIO_free_all (f);
-
-        return r != 1 ? -EIO : 0;
+        return 0;
 }
 
 static int
@@ -718,16 +717,18 @@ main(int argc, char **argv)
         if (cert == NULL)
                 return EXIT_FAILURE;
 
-        key = EVP_PKEY_get1_RSA(pair);
-        r = write_pubkey(key, "public.pem");
-        if (r)
-                return EXIT_FAILURE;
-
-        r = write_privkey(key, "private.pem");
-        if (r)
-                return EXIT_FAILURE;
-
+        printf("Writing cert, public, private\n");
         r = write_x509(cert, "cert.pem");
+        if (r)
+                return EXIT_FAILURE;
+
+        key = EVP_PKEY_get1_RSA(pair);
+        r = write_privkey(pair, "private.pem");
+        if (r)
+                return EXIT_FAILURE;
+
+        printf("Importing cert\n");
+        r = p11ctx_import_cert(&ctx, cert, 1);
         if (r)
                 return EXIT_FAILURE;
 
@@ -736,14 +737,11 @@ main(int argc, char **argv)
         if (r)
                 return EXIT_FAILURE;
 
-        printf("Importing cert\n");
-        r = p11ctx_import_cert(&ctx, cert, 1);
-
-        if (r)
-                return EXIT_FAILURE;
-
         ctx.module->C_CloseSession(ctx.session);
         p11_kit_modules_finalize_and_release(modules);
+
+        EVP_PKEY_free(pair);
+        X509_free(cert);
 
         return EXIT_SUCCESS;
 }
