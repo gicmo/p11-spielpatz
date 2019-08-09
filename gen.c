@@ -661,20 +661,56 @@ int
 main(int argc, char **argv)
 {
         CK_FUNCTION_LIST **modules;
+        const char *pin = NULL;
+        const char *uristr = NULL;
+        int optidx = 0;
+        int so_login = 0;
         P11Ctx ctx;
         P11KitUri *uri;
         EVP_PKEY *pair;
         X509 *cert;
         RSA *key;
         int r;
+        int c;
 
-        if (argc < 2) {
+        while (1) {
+                static struct option opts[] =
+                        {
+                         {"pin",       required_argument, 0, 'P'},
+                         {"so-login",  no_argument      , 0, 'S'},
+                         {NULL,        0,                 0,  0 }
+                        };
+
+                c = getopt_long(argc, argv, "SP:", opts, &optidx);
+                if (c == -1)
+                        break;
+
+                switch (c) {
+                case 'S':
+                        so_login = 1;
+                        break;
+
+                case 'P':
+                        pin = optarg;
+                        break;
+
+                case '?':
+                        break;
+
+                default:
+                        fprintf(stderr, "invalid option: 0%o\n", c);
+                }
+        }
+
+        if (optind >= argc) {
                 fprintf(stderr, "usage: %s URI\n", argv[0]);
                 return EXIT_FAILURE;
         }
 
         uri = p11_kit_uri_new();
-        r = p11_kit_uri_parse(argv[1], P11_KIT_URI_FOR_ANY, uri);
+        uristr = argv[optind];
+        fprintf(stderr, "Target: '%s'\n", uristr);
+        r = p11_kit_uri_parse(uristr, P11_KIT_URI_FOR_ANY, uri);
         if (r != P11_KIT_URI_OK) {
                 fprintf(stderr, "Could not parse URI: %s: %s\n",
                         argv[1], p11_kit_uri_message(r));
@@ -700,7 +736,8 @@ main(int argc, char **argv)
         printf("Found token\n");
         if (ctx.token.flags & CKF_LOGIN_REQUIRED) {
                 printf("Token needs login\n");
-                r = p11ctx_login(&ctx, CKU_SO, "010203040506070801020304050607080102030405060708");
+                CK_USER_TYPE user = so_login ? CKU_SO : CKU_USER;
+                r = p11ctx_login(&ctx, user, pin);
                 if (r != 0) {
                         fprintf(stderr, "Could not login\n");
                         return EXIT_SUCCESS;
