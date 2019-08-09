@@ -332,6 +332,7 @@ main(int argc, char **argv)
 {
         CK_FUNCTION_LIST **modules;
         P11KitUri *uri;
+        const char *pin = NULL;
         CK_RV rv;
         int c;
         int no_login = 0;
@@ -341,16 +342,21 @@ main(int argc, char **argv)
                 static struct option opts[] =
                         {
                          {"no-login",  no_argument,       0, 'N'},
+                         {"pin",       required_argument, 0, 'P'},
                          {NULL,        0,                 0,  0 }
                         };
 
-                c = getopt_long(argc, argv, "N", opts, &optidx);
+                c = getopt_long(argc, argv, "NP:", opts, &optidx);
                 if (c == -1)
                         break;
 
                 switch (c) {
                 case 'N':
                         no_login = 1;
+                        break;
+
+                case 'P':
+                        pin = optarg;
                         break;
 
                 case '?':
@@ -441,7 +447,7 @@ main(int argc, char **argv)
                         }
 
                         if (token_requires_login(&token) && !no_login)
-                                token_login(m, session, NULL);
+                                token_login(m, session, pin);
 
                         printf("   Objects\n");
                         dump_objects(m, session, "  ");
