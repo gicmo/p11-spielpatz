@@ -327,12 +327,35 @@ token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, const char *pin)
         return report_error(rv, "Login");
 }
 
+static CK_FUNCTION_LIST **
+load_module(const char *path, int flags)
+{
+        CK_FUNCTION_LIST **modules;
+        CK_RV rv;
+
+        modules = malloc(sizeof(CK_FUNCTION_LIST) * 2);
+        memset(modules, 0, sizeof(CK_FUNCTION_LIST) * 2);
+
+        modules[0] = p11_kit_module_load (path, flags);
+        if (modules[0] == NULL)
+                return modules;
+
+        rv = p11_kit_module_initialize(modules[0]);
+        if (rv != CKR_OK) {
+                p11_kit_module_release(modules[0]);
+                modules[0] = NULL;
+        }
+
+        return modules;
+}
+
 int
 main(int argc, char **argv)
 {
         CK_FUNCTION_LIST **modules;
         P11KitUri *uri;
         const char *pin = NULL;
+        const char *mpath = NULL;
         CK_RV rv;
         int c;
         int no_login = 0;
@@ -343,10 +366,11 @@ main(int argc, char **argv)
                         {
                          {"no-login",  no_argument,       0, 'N'},
                          {"pin",       required_argument, 0, 'P'},
+                         {"module",    required_argument, 0, 'M'},
                          {NULL,        0,                 0,  0 }
                         };
 
-                c = getopt_long(argc, argv, "NP:", opts, &optidx);
+                c = getopt_long(argc, argv, "NP:M:", opts, &optidx);
                 if (c == -1)
                         break;
 
@@ -359,6 +383,10 @@ main(int argc, char **argv)
                         pin = optarg;
                         break;
 
+                case 'M':
+                        mpath = optarg;
+                        break;
+
                 case '?':
                         break;
 
@@ -369,7 +397,10 @@ main(int argc, char **argv)
 
         uri = p11_kit_uri_new();
 
-        modules = p11_kit_modules_load_and_initialize(0);
+        if (mpath)
+                modules = load_module(mpath, 0);
+        else
+                modules = p11_kit_modules_load_and_initialize(0);
 
         for (CK_FUNCTION_LIST **l = modules; *l; l++) {
                 CK_FUNCTION_LIST *m = *l;
