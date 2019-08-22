@@ -21,6 +21,9 @@ static inline void free_ptr(void **pptr) {
 #define steal_ptr(ptr) ({ typeof(ptr) tmp__ = (ptr); (ptr) = NULL;  tmp__; })
 
 
+CK_FUNCTION_LIST **  p11_load_module(const char *path, int flags);
+
+
 typedef struct P11Ctx {
         CK_FUNCTION_LIST *module;
         CK_SLOT_ID slot;

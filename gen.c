@@ -501,28 +501,6 @@ write_x509(X509 *cert, const char *path)
         return r;
 }
 
-static CK_FUNCTION_LIST **
-load_module(const char *path, int flags)
-{
-        CK_FUNCTION_LIST **modules;
-        CK_RV rv;
-
-        modules = malloc(sizeof(CK_FUNCTION_LIST) * 2);
-        memset(modules, 0, sizeof(CK_FUNCTION_LIST) * 2);
-
-        modules[0] = p11_kit_module_load (path, flags);
-        if (modules[0] == NULL)
-                return modules;
-
-        rv = p11_kit_module_initialize(modules[0]);
-        if (rv != CKR_OK) {
-                p11_kit_module_release(modules[0]);
-                modules[0] = NULL;
-        }
-
-        return modules;
-}
-
 int
 main(int argc, char **argv)
 {
@@ -592,7 +570,7 @@ main(int argc, char **argv)
         p11_kit_be_loud();
 
         if (mpath)
-                modules = load_module(mpath, 0);
+                modules = p11_load_module(mpath, 0);
         else
                 modules = p11_kit_modules_load_and_initialize(0);
 
