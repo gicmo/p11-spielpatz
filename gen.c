@@ -529,6 +529,7 @@ main(int argc, char **argv)
         CK_FUNCTION_LIST **modules;
         const char *pin = NULL;
         const char *uristr = NULL;
+        const char *mpath = NULL;
         int optidx = 0;
         int so_login = 0;
         P11Ctx ctx;
@@ -544,6 +545,7 @@ main(int argc, char **argv)
                         {
                          {"pin",       required_argument, 0, 'P'},
                          {"so-login",  no_argument      , 0, 'S'},
+                         {"module",    required_argument, 0, 'M'},
                          {NULL,        0,                 0,  0 }
                         };
 
@@ -558,6 +560,10 @@ main(int argc, char **argv)
 
                 case 'P':
                         pin = optarg;
+                        break;
+
+                case 'M':
+                        mpath = optarg;
                         break;
 
                 case '?':
@@ -585,7 +591,10 @@ main(int argc, char **argv)
 
         p11_kit_be_loud();
 
-        modules = load_module("/home/gicmo/Code/src/p11-spielpatz/libykcs11.so", 0);
+        if (mpath)
+                modules = load_module(mpath, 0);
+        else
+                modules = p11_kit_modules_load_and_initialize(0);
 
         r = p11ctx_find_token(modules, &ctx, uri);
         if (r != 0) {
