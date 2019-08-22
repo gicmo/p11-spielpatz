@@ -4,6 +4,20 @@ project('spielpatz', 'c',
 p11kit  = dependency('p11-kit-1')
 openssl = dependency('openssl')
 
+common_lib = static_library('common',
+  sources: ['common.c'],
+  dependencies: [p11kit, openssl],
+  include_directories: [
+    include_directories('.')
+])
+
+common = declare_dependency(
+  dependencies: [p11kit, openssl],
+  link_with: common_lib,
+  include_directories: [
+    include_directories('.')
+])
+
 executable('list',
            sources: [ 'list.c' ],
            dependencies: [
@@ -23,5 +37,6 @@ executable('cert',
 executable('gen',
            sources: [ 'gen.c' ],
            dependencies: [
+                   common,
                    p11kit,
                    openssl])
